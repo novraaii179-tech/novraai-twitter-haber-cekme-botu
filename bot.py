@@ -1,32 +1,43 @@
 import json
 import os
 import re
+import sys
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# 1. Firebase Başlatma
-firebase_json_str = os.environ.get("FIREBASE_CREDENTIALS")
-if not firebase_json_str:
-    raise ValueError("FIREBASE_CREDENTIALS secret bulunamadı!")
-
-cred_dict = json.loads(firebase_json_str)
-cred = credentials.Certificate(cred_dict)
-
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+# --- 1. YAPILANDIRMA VE GÜVENLİK ---
 LIST_ID = "1975820683461460354"
 
+def get_env_variable(var_name):
+    value = os.environ.get(var_name)
+    if not value:
+        sys.exit(f"KRİTİK HATA: {var_name} GitHub Secrets içinde bulunamadı!")
+    return value
+
+# --- 2. FIREBASE BAĞLANTISI ---
+def init_firebase():
+    print("-> Firebase başlatılıyor...")
+    firebase_json_str = get_env_variable("FIREBASE_CREDENTIALS")
+    try:
+        cred_dict = json.loads(firebase_json_str)
+        cred = credentials.Certificate(cred_dict)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        print("-> Firebase bağlantısı başarılı.")
+        return firestore.client()
+    except Exception as e:
+        sys.exit(f"KRİTİK HATA: Firebase kimlik doğrulaması başarısız! Hata: {e}")
+
+# --- 3. X ÇEREZ YÖNETİMİ ---
 def parse_cookies():
-    cookies_str = os.environ.get("TWITTER_COOKIES")
-    if not cookies_str:
-        raise ValueError("TWITTER_COOKIES bulunamadı!")
+    cookies_str = get_env_variable("TWITTER_COOKIES")
+    try:
+        cookies_raw = json.loads(cookies_str)
+    except json.JSONDecodeError:
+        sys.exit("KRİTİK HATA: TWITTER_COOKIES geçerli bir JSON formatında değil!")
 
-    cookies_raw = json.loads(cookies_str)
     cookie_dict = {}
-
     if isinstance(cookies_raw, list):
         for c in cookies_raw:
             if "name" in c and "value" in c:
@@ -34,54 +45,45 @@ def parse_cookies():
     elif isinstance(cookies_raw, dict):
         cookie_dict = cookies_raw
 
-    if "ct0" not in cookie_dict:
-        cookie_dict["ct0"] = "a" * 32
+    if "ct0" not in cookie_dict or "auth_token" not in cookie_dict:
+        sys.exit("KRİTİK HATA: Çerezler içinde 'ct0' veya 'auth_token' bulunamadı. Oturum düşmüş olabilir.")
 
     return cookie_dict
 
+# --- 4. DİNAMİK QUERY ID BULUCU ---
 def get_live_query_id(session, headers):
-    print("Twitter'ın canlı JS dosyaları taranarak güncel Query ID aranıyor...")
+    print("-> X (Twitter) JS dosyaları taranıyor...")
     try:
-        # Twitter anasayfasına bağlanıp tüm JS kaynaklarını topluyoruz
-        home_res = session.get("https://x.com", headers={"User-Agent": headers["user-agent"]})
+        home_res = session.get("https://x.com", headers={"User-Agent": headers["user-agent"]}, timeout=15)
         js_files = re.findall(r'https://abs[-0-9a-z]*\.twimg\.com/responsive-web/client-web/[a-zA-Z0-9\._-]+\.js', home_res.text)
         
         for js_url in set(js_files):
-            js_res = session.get(js_url, headers={"User-Agent": headers["user-agent"]})
+            js_res = session.get(js_url, headers={"User-Agent": headers["user-agent"]}, timeout=15)
             
-            # Listeleri getiren 'ListLatestTweetsTimeline' sorgusunu bul
             if "ListLatestTweetsTimeline" in js_res.text:
-                query_id = None
+                match = re.search(r'queryId:"([^"]+)"[^}]*operationName:"ListLatestTweetsTimeline"|operationName:"ListLatestTweetsTimeline"[^}]*queryId:"([^"]+)"', js_res.text)
                 
-                # Tüm olası Twitter JS formatlarını test eden regex kuralları
-                match1 = re.search(r'queryId:"([^"]+)"[^}]+?operationName:"ListLatestTweetsTimeline"', js_res.text)
-                match2 = re.search(r'operationName:"ListLatestTweetsTimeline"[^}]+?queryId:"([^"]+)"', js_res.text)
-                match3 = re.search(r'"([^"]+)"\s*,\s*operationName:"ListLatestTweetsTimeline"', js_res.text)
-                
-                if match1: query_id = match1.group(1)
-                elif match2: query_id = match2.group(1)
-                elif match3: query_id = match3.group(1)
-
-                if query_id:
-                    print(f"Başarılı! Güncel Query ID bulundu: {query_id}")
+                if match:
+                    query_id = match.group(1) or match.group(2)
+                    print(f"-> Başarılı! Güncel Query ID bulundu: {query_id}")
                     return query_id
                     
-        print("Uyarı: Taranan JS dosyalarında ID bulunamadı.")
     except Exception as e:
-        print(f"Tarama Hatası: {e}")
+        sys.exit(f"KRİTİK HATA: JS tarama sırasında ağ hatası oluştu: {e}")
     
-    return None
+    sys.exit("KRİTİK HATA: 'ListLatestTweetsTimeline' için güncel Query ID bulunamadı. X API yapısı değişmiş olabilir.")
 
-def fetch_and_save():
+# --- 5. ANA İŞLEM AKIŞI ---
+def main():
+    db = init_firebase()
     session = requests.Session()
     cookie_dict = parse_cookies()
-    ct0 = cookie_dict.get("ct0", "")
-
+    
     cookie_header = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
-
+    
     headers = {
         "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
-        "x-csrf-token": ct0,
+        "x-csrf-token": cookie_dict["ct0"],
         "cookie": cookie_header,
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "x-twitter-active-user": "yes",
@@ -89,22 +91,11 @@ def fetch_and_save():
         "content-type": "application/json"
     }
 
-    # Tarama sistemini çalıştır
     query_id = get_live_query_id(session, headers)
     
-    # Bulunamazsa bile bilinen yedek bir ID ile devam et
-    if not query_id:
-        query_id = "H8OOoIURsQE3Q5uL8v7wvw"
-        print(f"Varsayılan yedek ID kullanılıyor: {query_id}")
-
     url = f"https://x.com/i/api/graphql/{query_id}/ListLatestTweetsTimeline"
     
-    variables = {
-        "listId": LIST_ID,
-        "count": 100
-    }
-    
-    # Twitter'ın yeni eklediği özellik (feature) bayrakları
+    variables = {"listId": LIST_ID, "count": 100}
     features = {
         "responsive_web_graphql_exclude_directive_enabled": True,
         "verified_phone_label_enabled": False,
@@ -131,26 +122,19 @@ def fetch_and_save():
         "rweb_tipjar_consumption_enabled": True
     }
 
-    params = {
-        "variables": json.dumps(variables),
-        "features": json.dumps(features)
-    }
-
-    print(f"Tweetler çekiliyor (Liste ID: {LIST_ID})...")
-    response = session.get(url, headers=headers, params=params)
+    print("-> X bağlantısı kuruluyor, haberler çekiliyor...")
+    response = session.get(url, headers=headers, params={"variables": json.dumps(variables), "features": json.dumps(features)})
 
     if response.status_code != 200:
-        print(f"Bağlantı Hatası: {response.status_code}")
-        print(response.text[:250])
-        return
-
+        sys.exit(f"KRİTİK HATA: X API bağlantı hatası! HTTP {response.status_code}\nDetay: {response.text[:300]}")
+    
+    print("-> X bağlantısı başarılı. JSON verisi çözümleniyor...")
     data = response.json()
     
     try:
         instructions = data["data"]["list"]["tweets_timeline"]["timeline"]["instructions"]
     except KeyError:
-        print("Hata: Akış verisi çözülemedi. (API Yanıtı Değişmiş Olabilir)")
-        return
+        sys.exit(f"KRİTİK HATA: X JSON formatı beklendiği gibi değil. Veri: {str(data)[:200]}")
 
     entries = []
     for inst in instructions:
@@ -159,27 +143,24 @@ def fetch_and_save():
             break
 
     if not entries:
-        print("İşlenecek yeni tweet bulunamadı.")
+        print("-> İşlenecek yeni tweet bulunamadı. Sistem sonlanıyor.")
         return
 
+    print(f"-> Analiz edilen toplam entry sayısı: {len(entries)}")
+    
     saved_count = 0
     updated_count = 0
 
+    print("-> Firestore'a yazma işlemi başlıyor...")
     for entry in entries:
-        content = entry.get("content", {})
-        item_content = content.get("itemContent", {})
-        tweet_results = item_content.get("tweet_results", {})
-        result = tweet_results.get("result", {})
+        content = entry.get("content", {}).get("itemContent", {}).get("tweet_results", {}).get("result", {})
+        if not content:
+            continue
 
-        if not result: continue
-
-        if result.get("__typename") == "TweetWithVisibilityResults":
-            tweet = result.get("tweet", {})
-        else:
-            tweet = result
-
+        tweet = content.get("tweet", content) if content.get("__typename") == "TweetWithVisibilityResults" else content
         tweet_id = tweet.get("rest_id")
-        if not tweet_id: continue
+        if not tweet_id:
+            continue
 
         legacy = tweet.get("legacy", {})
         text = legacy.get("full_text", "")
@@ -188,7 +169,6 @@ def fetch_and_save():
         images = []
         videos = []
 
-        # Görseller ve MP4 videoları tespit edip listeye ekleme
         media_list = legacy.get("extended_entities", {}).get("media", []) or legacy.get("entities", {}).get("media", [])
         for m in media_list:
             if m.get("type") == "photo" and m.get("media_url_https"):
@@ -204,15 +184,13 @@ def fetch_and_save():
                 elif m.get("media_url_https"):
                     images.append(m["media_url_https"])
 
-        user_result = tweet.get("core", {}).get("user_results", {}).get("result", {})
-        user_legacy = user_result.get("legacy", {})
+        user_legacy = tweet.get("core", {}).get("user_results", {}).get("result", {}).get("legacy", {})
         author = {
             "name": user_legacy.get("name", ""),
             "screen_name": user_legacy.get("screen_name", ""),
             "profile_image_url": user_legacy.get("profile_image_url_https", "")
         }
 
-        # Veritabanına Yazılacak Model
         doc_data = {
             "tweet_id": tweet_id,
             "text": text,
@@ -228,16 +206,18 @@ def fetch_and_save():
         }
 
         doc_ref = db.collection("haberler").document(tweet_id)
-        doc_snapshot = doc_ref.get()
-
-        if doc_snapshot.exists:
+        if doc_ref.get().exists:
             doc_ref.set(doc_data, merge=True)
             updated_count += 1
         else:
             doc_ref.set(doc_data)
             saved_count += 1
 
-    print(f"İşlem Tamamlandı! Yeni eklenen haber: {saved_count}, Güncellenen: {updated_count}")
+    print("-" * 30)
+    print("İŞLEM ÖZETİ:")
+    print(f"-> Yeni Eklenen Haber: {saved_count}")
+    print(f"-> Güncellenen Haber: {updated_count}")
+    print("-" * 30)
 
 if __name__ == "__main__":
-    fetch_and_save()
+    main()
