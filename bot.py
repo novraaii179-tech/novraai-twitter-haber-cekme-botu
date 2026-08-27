@@ -7,7 +7,7 @@ from firebase_admin import credentials, firestore
 # 1. Firebase Başlatma
 firebase_json_str = os.environ.get("FIREBASE_CREDENTIALS")
 if not firebase_json_str:
-    raise ValueError("FIREBASE_CREDENTIALS secret verisi bulunamadı!")
+    raise ValueError("FIREBASE_CREDENTIALS secret bulunamadı!")
 
 cred_dict = json.loads(firebase_json_str)
 cred = credentials.Certificate(cred_dict)
@@ -39,10 +39,6 @@ def parse_cookies():
 def fetch_and_save():
     cookie_dict = parse_cookies()
     ct0 = cookie_dict.get("ct0", "")
-    auth_token = cookie_dict.get("auth_token", "")
-
-    if not ct0 or not auth_token:
-        print("UYARI: Çerezlerde ct0 veya auth_token eksik! Lütfen x.com'dan yeni çerez export edin.")
 
     cookie_header = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
 
@@ -56,7 +52,6 @@ def fetch_and_save():
         "content-type": "application/json"
     }
 
-    # Twitter GraphQL Liste Sorgusu
     url = "https://x.com/i/api/graphql/2V_Up2VGmEti9_iooiTqng/ListLatestTweetsTimeline"
     
     variables = {
@@ -105,7 +100,7 @@ def fetch_and_save():
     try:
         instructions = data["data"]["list"]["tweets_timeline"]["timeline"]["instructions"]
     except KeyError:
-        print("Hata: Liste akışı çözümlenemedi. Çerezlerinizi yenilemeniz gerekebilir.")
+        print("Hata: Akış çözümlenemedi. Çerezlerinizi yenilemeniz gerekebilir.")
         return
 
     entries = []
@@ -149,11 +144,9 @@ def fetch_and_save():
         # Görsel ve Video ayrıştırma
         media_list = legacy.get("extended_entities", {}).get("media", []) or legacy.get("entities", {}).get("media", [])
         for m in media_list:
-            # Fotoğraf
             if m.get("type") == "photo" and m.get("media_url_https"):
                 images.append(m["media_url_https"])
             
-            # Video ve GIF
             if m.get("type") in ["video", "animated_gif"]:
                 variants = m.get("video_info", {}).get("variants", [])
                 mp4_variants = [v for v in variants if v.get("content_type") == "video/mp4"]
@@ -164,7 +157,6 @@ def fetch_and_save():
                 elif m.get("media_url_https"):
                     images.append(m["media_url_https"])
 
-        # Yazar Detayları
         user_result = tweet.get("core", {}).get("user_results", {}).get("result", {})
         user_legacy = user_result.get("legacy", {})
         author = {
