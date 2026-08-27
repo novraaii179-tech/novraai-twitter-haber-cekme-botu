@@ -1,2 +1,2 @@
 firebase-admin==6.5.0
-git+https://github.com/d60/twikit.git
+requests==2.31.0
