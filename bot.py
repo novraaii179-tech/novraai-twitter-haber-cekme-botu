@@ -58,23 +58,28 @@ def get_live_query_id(session, headers):
         list_url = f"https://x.com/i/lists/{LIST_ID}"
         res = session.get(list_url, headers={"User-Agent": headers["user-agent"]}, timeout=15)
         
-        # Sayfada yüklenen tüm JavaScript dosyalarını çek
-        js_files = re.findall(r'https://abs[-0-9a-z]*\.twimg\.com/responsive-web/client-web/[a-zA-Z0-9\._-]+\.js', res.text)
+        # Daha esnek bir regex ile tüm twimg JS dosyalarını yakalayalım
+        js_files = re.findall(r'https://abs[-0-9a-z]*\.twimg\.com/[^"\'\s]+\.js', res.text)
+        print(f"-> Toplam {len(set(js_files))} adet JS dosyası bulundu, taranıyor...")
         
         for js_url in set(js_files):
-            js_res = session.get(js_url, headers={"User-Agent": headers["user-agent"]}, timeout=15)
-            
-            # ListLatestTweetsTimeline operasyonunu içeren dosyayı bulduğumuzda ID'yi çek
-            if "ListLatestTweetsTimeline" in js_res.text:
-                match = re.search(r'queryId:"([^"]+)"[^}]*operationName:"ListLatestTweetsTimeline"', js_res.text)
-                if not match:
-                    match = re.search(r'operationName:"ListLatestTweetsTimeline"[^}]*queryId:"([^"]+)"', js_res.text)
+            try:
+                js_res = session.get(js_url, headers={"User-Agent": headers["user-agent"]}, timeout=10)
                 
-                if match:
-                    query_id = match.group(1)
-                    file_name = js_url.split('/')[-1]
-                    print(f"-> Başarılı! Güncel Query ID bulundu: {query_id} (Dosya: {file_name})")
-                    return query_id
+                # ListLatestTweetsTimeline operasyonunu içeren dosyayı bulduğumuzda ID'yi çek
+                if "ListLatestTweetsTimeline" in js_res.text:
+                    match = re.search(r'queryId:"([^"]+)"[^}]*operationName:"ListLatestTweetsTimeline"', js_res.text)
+                    if not match:
+                        match = re.search(r'operationName:"ListLatestTweetsTimeline"[^}]*queryId:"([^"]+)"', js_res.text)
+                    
+                    if match:
+                        query_id = match.group(1)
+                        file_name = js_url.split('/')[-1]
+                        print(f"-> Başarılı! Güncel Query ID bulundu: {query_id} (Dosya: {file_name})")
+                        return query_id
+            except requests.exceptions.RequestException:
+                # Bazı JS dosyaları zaman aşımına uğrarsa veya yüklenemezse döngüye devam et
+                continue
                     
     except Exception as e:
         sys.exit(f"KRİTİK HATA: JS tarama sırasında ağ hatası oluştu: {e}")
