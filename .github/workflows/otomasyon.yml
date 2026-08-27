@@ -6,25 +6,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  scrape_and_save:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Depo Kodunu Al
-        uses: actions/checkout@v4
 
-      - name: Python 3.11 Kur
-        uses: actions/setup-python@v5
+    steps:
+      - name: Kodu Klonla
+        uses: actions/checkout@v3
+
+      - name: Python Kurulumu
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Gerekli Paketleri Yükle
+      - name: Gerekli Kütüphaneleri Yükle
         run: |
-          pip install --upgrade pip
           pip install -r requirements.txt
+          playwright install chromium
 
       - name: Botu Çalıştır
         env:
           FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
-        run: |
-          python bot.py
+        run: python bot.py
