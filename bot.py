@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -22,7 +23,7 @@ LIST_ID = "1975820683461460354"
 def parse_cookies():
     cookies_str = os.environ.get("TWITTER_COOKIES")
     if not cookies_str:
-        raise ValueError("TWITTER_COOKIES bulunamadı!")
+        raise ValueError("TWITTER_COOKIES secret bulunamadı!")
 
     cookies_raw = json.loads(cookies_str)
     cookie_dict = {}
@@ -34,9 +35,31 @@ def parse_cookies():
     elif isinstance(cookies_raw, dict):
         cookie_dict = cookies_raw
 
+    # CSRF token yoksa oluştur
+    if "ct0" not in cookie_dict:
+        cookie_dict["ct0"] = "a" * 32
+
     return cookie_dict
 
+def get_current_query_id(session, headers):
+    """Twitter JavaScript dosyalarından güncel ListLatestTweetsTimeline query ID'sini bulur"""
+    try:
+        home_res = session.get("https://x.com", headers=headers, timeout=10)
+        js_files = re.findall(r'https://abs\.twimg\.com/responsive-web/client-web/[a-zA-Z0-9\._-]+\.js', home_res.text)
+        
+        for js_url in set(js_files):
+            js_res = session.get(js_url, headers=headers, timeout=10)
+            match = re.search(r'queryId:"([^"]+)",operationName:"ListLatestTweetsTimeline"', js_res.text)
+            if match:
+                return match.group(1)
+    except Exception as e:
+        print(f"Dinamik Query ID aramada uyarı: {e}")
+    
+    # Varsayılan bilinen son ID
+    return "2V_Up2VGmEti9_iooiTqng"
+
 def fetch_and_save():
+    session = requests.Session()
     cookie_dict = parse_cookies()
     ct0 = cookie_dict.get("ct0", "")
 
@@ -52,7 +75,10 @@ def fetch_and_save():
         "content-type": "application/json"
     }
 
-    url = "https://x.com/i/api/graphql/2V_Up2VGmEti9_iooiTqng/ListLatestTweetsTimeline"
+    query_id = get_current_query_id(session, headers)
+    print(f"Kullanılan Query ID: {query_id}")
+
+    url = f"https://x.com/i/api/graphql/{query_id}/ListLatestTweetsTimeline"
     
     variables = {
         "listId": LIST_ID,
@@ -89,10 +115,10 @@ def fetch_and_save():
     }
 
     print(f"Liste taranıyor: {LIST_ID}...")
-    response = requests.get(url, headers=headers, params=params)
+    response = session.get(url, headers=headers, params=params)
 
     if response.status_code != 200:
-        print(f"Bağlantı Hatası: {response.status_code} - {response.text[:200]}")
+        print(f"Bağlantı Hatası: {response.status_code} - {response.text[:250]}")
         return
 
     data = response.json()
@@ -100,7 +126,7 @@ def fetch_and_save():
     try:
         instructions = data["data"]["list"]["tweets_timeline"]["timeline"]["instructions"]
     except KeyError:
-        print("Hata: Akış çözümlenemedi. Çerezlerinizi yenilemeniz gerekebilir.")
+        print("Hata: Akış formatı çözülemedi. Yanıt içeriği:", str(data)[:200])
         return
 
     entries = []
@@ -141,7 +167,7 @@ def fetch_and_save():
         images = []
         videos = []
 
-        # Görsel ve Video ayrıştırma
+        # Fotoğraflar ve Videolar
         media_list = legacy.get("extended_entities", {}).get("media", []) or legacy.get("entities", {}).get("media", [])
         for m in media_list:
             if m.get("type") == "photo" and m.get("media_url_https"):
@@ -157,6 +183,7 @@ def fetch_and_save():
                 elif m.get("media_url_https"):
                     images.append(m["media_url_https"])
 
+        # Yazar Bilgisi
         user_result = tweet.get("core", {}).get("user_results", {}).get("result", {})
         user_legacy = user_result.get("legacy", {})
         author = {
