@@ -1,0 +1,2 @@
+firebase-admin==6.5.0
+twikit==2.2.0
