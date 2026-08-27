@@ -54,18 +54,26 @@ def parse_cookies():
 def get_live_query_id(session, headers):
     print("-> X (Twitter) JS dosyaları taranıyor...")
     try:
-        home_res = session.get("https://x.com", headers={"User-Agent": headers["user-agent"]}, timeout=15)
-        js_files = re.findall(r'https://abs[-0-9a-z]*\.twimg\.com/responsive-web/client-web/[a-zA-Z0-9\._-]+\.js', home_res.text)
+        # ANA SAYFA YERİNE DOĞRUDAN LİSTE SAYFASINI TARIYORUZ
+        list_url = f"https://x.com/i/lists/{LIST_ID}"
+        res = session.get(list_url, headers={"User-Agent": headers["user-agent"]}, timeout=15)
+        
+        # Sayfada yüklenen tüm JavaScript dosyalarını çek
+        js_files = re.findall(r'https://abs[-0-9a-z]*\.twimg\.com/responsive-web/client-web/[a-zA-Z0-9\._-]+\.js', res.text)
         
         for js_url in set(js_files):
             js_res = session.get(js_url, headers={"User-Agent": headers["user-agent"]}, timeout=15)
             
+            # ListLatestTweetsTimeline operasyonunu içeren dosyayı bulduğumuzda ID'yi çek
             if "ListLatestTweetsTimeline" in js_res.text:
-                match = re.search(r'queryId:"([^"]+)"[^}]*operationName:"ListLatestTweetsTimeline"|operationName:"ListLatestTweetsTimeline"[^}]*queryId:"([^"]+)"', js_res.text)
+                match = re.search(r'queryId:"([^"]+)"[^}]*operationName:"ListLatestTweetsTimeline"', js_res.text)
+                if not match:
+                    match = re.search(r'operationName:"ListLatestTweetsTimeline"[^}]*queryId:"([^"]+)"', js_res.text)
                 
                 if match:
-                    query_id = match.group(1) or match.group(2)
-                    print(f"-> Başarılı! Güncel Query ID bulundu: {query_id}")
+                    query_id = match.group(1)
+                    file_name = js_url.split('/')[-1]
+                    print(f"-> Başarılı! Güncel Query ID bulundu: {query_id} (Dosya: {file_name})")
                     return query_id
                     
     except Exception as e:
@@ -91,6 +99,7 @@ def main():
         "content-type": "application/json"
     }
 
+    # Güncel ID'yi bul
     query_id = get_live_query_id(session, headers)
     
     url = f"https://x.com/i/api/graphql/{query_id}/ListLatestTweetsTimeline"
@@ -146,7 +155,7 @@ def main():
         print("-> İşlenecek yeni tweet bulunamadı. Sistem sonlanıyor.")
         return
 
-    print(f"-> Analiz edilen toplam entry sayısı: {len(entries)}")
+    print(f"-> Analiz edilen toplam haber (tweet) sayısı: {len(entries)}")
     
     saved_count = 0
     updated_count = 0
