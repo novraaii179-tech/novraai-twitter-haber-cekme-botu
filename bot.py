@@ -8,7 +8,7 @@ from twikit import Client
 # 1. Firebase Başlatma
 firebase_json_str = os.environ.get("FIREBASE_CREDENTIALS")
 if not firebase_json_str:
-    raise ValueError("FIREBASE_CREDENTIALS ortam değişkeni (secret) bulunamadı!")
+    raise ValueError("FIREBASE_CREDENTIALS secret bulunamadı!")
 
 cred_dict = json.loads(firebase_json_str)
 cred = credentials.Certificate(cred_dict)
@@ -22,12 +22,13 @@ db = firestore.client()
 LIST_ID = "1975820683461460354"
 
 async def fetch_and_save():
-    client = Client('tr-TR')
+    # Dil en-US olarak ayarlandığında Twitter şifreleme anahtarları sorunsuz çözülür
+    client = Client('en-US')
 
     # 2. X/Twitter Çerezlerini Yükleme
     cookies_str = os.environ.get("TWITTER_COOKIES")
     if not cookies_str:
-        print("HATA: TWITTER_COOKIES bulunamadı! Lütfen GitHub Secrets alanına çerezleri ekleyin.")
+        print("HATA: TWITTER_COOKIES bulunamadı!")
         return
 
     cookies_raw = json.loads(cookies_str)
@@ -43,14 +44,14 @@ async def fetch_and_save():
     print(f"Liste taranıyor: {LIST_ID}...")
 
     try:
-        # Listeden son tweetleri çek
+        # Listeden en son tweetleri al
         tweets = await client.get_list_tweets(LIST_ID, count=100)
     except Exception as e:
         print(f"Tweetler çekilirken hata oluştu: {e}")
         return
 
     if not tweets:
-        print("Listede işlenecek tweet bulunamadı.")
+        print("Listede tweet bulunamadı veya erişilemedi.")
         return
 
     saved_count = 0
@@ -64,15 +65,13 @@ async def fetch_and_save():
         images = []
         videos = []
 
-        # 3. Görselleri ve Videoları Ayrıştırma
+        # 3. Görsel ve Video Bağlantılarını Ayrıştırma
         if hasattr(tweet, 'media') and tweet.media:
             for m in tweet.media:
-                # Fotoğraf linkleri (orijinal / yüksek çözünürlük)
                 media_url = getattr(m, 'media_url_https', None) or getattr(m, 'url', None)
                 if media_url:
                     images.append(media_url)
 
-                # Video linkleri (En yüksek çözünürlüklü MP4 linki)
                 streams = getattr(m, 'streams', None)
                 if streams:
                     mp4_streams = [s for s in streams if 'mp4' in s.get('url', '') or s.get('content_type') == 'video/mp4']
@@ -90,11 +89,9 @@ async def fetch_and_save():
                         if best_var.get('url'):
                             videos.append(best_var.get('url'))
 
-        # Tekrarlanan medya linklerini temizle
         images = list(dict.fromkeys(images))
         videos = list(dict.fromkeys(videos))
 
-        # Yazar bilgileri
         user_info = {}
         if hasattr(tweet, 'user') and tweet.user:
             user_info = {
@@ -104,7 +101,6 @@ async def fetch_and_save():
                 "profile_image_url": getattr(tweet.user, 'profile_image_url_https', '') or getattr(tweet.user, 'profile_image_url', '')
             }
 
-        # Firestore Belge Modeli
         doc_data = {
             "tweet_id": tweet_id,
             "text": text,
