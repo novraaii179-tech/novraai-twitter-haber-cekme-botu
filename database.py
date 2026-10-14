@@ -1,6 +1,7 @@
+from __future__ import annotations
 import sys
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import firebase_admin
 from firebase_admin import credentials, firestore
 from config import Config
@@ -28,13 +29,14 @@ class Database:
         except Exception as e:
             sys.exit(f"KRİTİK HATA: Firebase başlatılamadı: {e}")
 
-    def save_news(self, news_doc: Dict[str, Any]) -> Tuple_Result:
+    def save_news(self, news_doc: Dict[str, Any]) -> Tuple[bool, bool]:
         """
         Haberi Firestore'a kaydeder.
         Config.SAVE_MODE değerine göre:
         - 'both': Hem ana koleksiyona ('haberler') hem de kategori koleksiyonuna ('haberler_{kategori}')
         - 'single': Yalnızca ana koleksiyona ('haberler')
         - 'categorized': Yalnızca kategori koleksiyonuna
+        Dönüş: (is_new, is_success)
         """
         tweet_id = news_doc["tweet_id"]
         category = news_doc.get("category", "gundem")
@@ -90,7 +92,6 @@ class Database:
         now = datetime.now(timezone.utc)
         cutoff_dt = now - timedelta(days=retention_days)
         cutoff_ts = int(cutoff_dt.timestamp())
-        cutoff_iso = cutoff_dt.isoformat()
 
         print(f"\n-> [OTOMATİK TEMİZLEME] {retention_days} günden eski ({cutoff_dt.strftime('%d.%m.%Y %H:%M')} UTC öncesi) haberler aranıyor...")
 
@@ -114,13 +115,12 @@ class Database:
             try:
                 coll_ref = self.db.collection(coll_name)
                 
-                # 1. expires_timestamp veya published_timestamp ile ara
+                # 1. published_timestamp ile ara
                 query = coll_ref.where("published_timestamp", "<=", cutoff_ts).limit(450)
                 docs = list(query.stream())
 
-                # Eğer published_timestamp bulunamadıysa (eski kayıtlar için created_at kontrolü)
+                # Eğer published_timestamp bulunamadıysa (eski kayıtlar için expires_at kontrolü)
                 if not docs:
-                    # Alternatif olarak expires_at kontrolü
                     query2 = coll_ref.where("expires_at", "<=", now.isoformat()).limit(450)
                     docs = list(query2.stream())
 
@@ -135,9 +135,8 @@ class Database:
                     total_deleted += deleted_in_batch
                     print(f"   ✓ '{coll_name}' koleksiyonundan {deleted_in_batch} eski haber silindi.")
             except Exception as e:
-                # İndeks hatası veya koleksiyon yoksa sessizce geç
+                # İndeks gerekmesi durumu için client-side fallback
                 if "requires an index" in str(e):
-                    # İndeks gerekmeden client-side tarih kontrolü ile silme (fallback)
                     fallback_deleted = self._fallback_cleanup_by_date(coll_name, cutoff_ts)
                     total_deleted += fallback_deleted
                 else:
@@ -168,6 +167,3 @@ class Database:
         except Exception:
             pass
         return deleted
-
-
-Tuple_Result = Any

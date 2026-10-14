@@ -1,24 +1,10 @@
+from __future__ import annotations
 import json
 import os
 import re
 import sys
 from dataclasses import dataclass
 from typing import List, Optional
-
-
-@dataclass
-class TwitterListConfig:
-    """X (Twitter) Liste Yapılandırması"""
-    list_id: str
-    url: str
-    name: str = ""
-    category: str = ""
-
-    def __post_init__(self):
-        if not self.url and self.list_id:
-            self.url = f"https://x.com/i/lists/{self.list_id}"
-        if not self.category and self.name:
-            self.category = slugify(self.name)
 
 
 def slugify(text: str) -> str:
@@ -58,6 +44,21 @@ def extract_list_id(url_or_id: str) -> Optional[str]:
     if match:
         return match.group(1)
     return None
+
+
+@dataclass
+class TwitterListConfig:
+    """X (Twitter) Liste Yapılandırması"""
+    list_id: str
+    url: str
+    name: str = ""
+    category: str = ""
+
+    def __post_init__(self):
+        if not self.url and self.list_id:
+            self.url = f"https://x.com/i/lists/{self.list_id}"
+        if not self.category and self.name:
+            self.category = slugify(self.name)
 
 
 class Config:
@@ -152,10 +153,6 @@ class Config:
         Takip edilecek X listelerini tespit eder:
         1. 'lists.json' dosyası varsa oradan okur.
         2. 'TWITTER_LISTS' veya 'TWITTER_LIST_URLS' ortam değişkeninden okur.
-           Örnek format:
-             - JSON: '[{"url": "...", "name": "Ekonomi"}]'
-             - Virgülle ayrılmış: 'https://x.com/i/lists/123|Gündem, https://x.com/i/lists/456|Ekonomi'
-             - Düz URL/ID: '123456789, 987654321'
         3. Hiçbiri yoksa varsayılan DEFAULT_LIST_ID kullanılır.
         """
         lists: List[TwitterListConfig] = []
