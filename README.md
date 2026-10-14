@@ -15,7 +15,7 @@
 
 ---
 
-**Hazırlayanlar:** [Muhammed Yasin KORKUT](https://github.com/Yasin0234) & **Beyza KARAKAŞ**  
+**Hazırlayanlar:** [Muhammed Yasin KORKUT](https://github.com/Yasin0234) & [Beyza KARAKAŞ](https://github.com/jibeymin)  
 **Sürüm:** `1.4` | **Tarih:** `14 Ekim 2026`
 
 </div>
@@ -287,8 +287,29 @@ python bot.py --list "https://x.com/i/lists/1975820683461460354"
 
 Bu proje **Novra AI** ekibi tarafından geliştirilmiştir:
 
-- **Muhammed Yasin KORKUT** - Lead Developer & AI Engineer ([GitHub](https://github.com/Yasin0234))
-- **Beyza KARAKAŞ** - Co-Developer & System Architecture
+<table align="center">
+  <tr>
+    <td align="center" width="220">
+      <a href="https://github.com/Yasin0234">
+        <img src="https://github.com/Yasin0234.png" width="100px;" alt="Muhammed Yasin KORKUT" style="border-radius:50%;"/><br />
+        <sub><b>Muhammed Yasin KORKUT</b></sub>
+      </a><br />
+      <sub>Lead Developer & AI Engineer</sub><br />
+      <a href="https://github.com/Yasin0234"><sub>@Yasin0234</sub></a>
+    </td>
+    <td align="center" width="220">
+      <a href="https://github.com/jibeymin">
+        <img src="https://github.com/jibeymin.png" width="100px;" alt="Beyza KARAKAŞ" style="border-radius:50%;"/><br />
+        <sub><b>Beyza KARAKAŞ</b></sub>
+      </a><br />
+      <sub>Co-Developer & System Architecture</sub><br />
+      <a href="https://github.com/jibeymin"><sub>@jibeymin</sub></a>
+    </td>
+  </tr>
+</table>
+
+- **Muhammed Yasin KORKUT** - Lead Developer & AI Engineer ([@Yasin0234](https://github.com/Yasin0234))
+- **Beyza KARAKAŞ** - Co-Developer & System Architecture ([@jibeymin](https://github.com/jibeymin))
 
 ---
 
