@@ -14,7 +14,7 @@
 </p>
 
 ---
-**Founder & Project Owner:[Kerem Kurşunoğlu]
+**Founder & Project Owner:[Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip)
 **Hazırlayanlar:** [Muhammed Yasin KORKUT](https://github.com/Yasin0234) & [Beyza KARAKAŞ](https://github.com/jibeymin)  
 **Sürüm:** `1.4` | **Tarih:** `14 Ekim 2026`
 
