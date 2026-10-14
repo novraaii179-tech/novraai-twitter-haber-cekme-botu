@@ -20,20 +20,23 @@ def fetch_list_timeline_data(
 ) -> Optional[Dict[str, Any]]:
     """
     Belirtilen X liste sayfasına gider ve arka planda tetiklenen
-    ListLatestTweetsTimeline GraphQL JSON yanıtını yakalar.
+    ListLatestTweetsTimeline veya ListTimeline GraphQL JSON yanıtını yakalar.
     """
     captured_data = None
     list_url = list_config.url
 
     def handle_response(response):
         nonlocal captured_data
+        url_lower = response.url.lower()
         if (
-            "ListLatestTweetsTimeline" in response.url
-            and response.status == 200
-            and response.request.method == "GET"
+            response.status == 200
+            and ("listlatesttweetstimeline" in url_lower or "listtimeline" in url_lower or "listtweetstimeline" in url_lower)
         ):
             try:
-                captured_data = response.json()
+                data = response.json()
+                if "data" in data and "list" in data["data"]:
+                    print("   ✓ Arka plandaki X Liste GraphQL API yanıtı yakalandı.")
+                    captured_data = data
             except Exception:
                 pass
 
@@ -42,11 +45,23 @@ def fetch_list_timeline_data(
     print(f"\n-> [{list_config.category.upper()}] Listeye gidiliyor: {list_url}")
 
     try:
-        page.goto(list_url, wait_until="networkidle", timeout=35000)
-        # Verilerin ve medya API çağrılarının tamamlanması için bekle
-        page.wait_for_timeout(6000)
+        # Sayfaya git
+        page.goto(list_url, wait_until="domcontentloaded", timeout=40000)
+        
+        # İsteklerin tetiklenmesi için kısa bekleme ve hafif kaydırma
+        page.wait_for_timeout(3000)
+        page.mouse.wheel(0, 400)
+        page.wait_for_timeout(4000)
+
+        current_url = page.url
+        page_title = page.title()
+        print(f"-> Sayfa Durumu: URL='{current_url}' | Başlık='{page_title}'")
+
+        if "/login" in current_url or "/i/flow/login" in current_url:
+            print("[KRİTİK UYARI] X oturum açma sayfasına yönlendirdi! Lütfen TWITTER_COOKIES sırrınızı güncelleyin.")
+
     except Exception as e:
-        print(f"-> Sayfa yüklenirken zaman aşımı oldu (veri yine de yakalanmış olabilir): {e}")
+        print(f"-> Sayfa yüklenirken zaman aşımı/uyarı oluştu (veri yine de yakalanmış olabilir): {e}")
 
     # Listener'ı temizle
     try:

@@ -145,6 +145,14 @@ class Config:
         if not pw_cookies:
             sys.exit("KRİTİK HATA: Geçerli X çerezi ayrıştırılamadı!")
 
+        has_auth_token = any(c.get("name") == "auth_token" for c in pw_cookies)
+        has_ct0 = any(c.get("name") == "ct0" for c in pw_cookies)
+
+        if not has_auth_token:
+            print("[UYARI] Çerezler arasında 'auth_token' bulunamadı! X oturumu açılmamış olabilir.")
+        else:
+            print(f"-> X çerezleri başarıyla yüklendi (Toplam: {len(pw_cookies)} çerez, auth_token: Mevcut, ct0: {'Mevcut' if has_ct0 else 'Eksik'}).")
+
         return pw_cookies
 
     @classmethod

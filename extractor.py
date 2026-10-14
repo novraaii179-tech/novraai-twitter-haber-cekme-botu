@@ -240,8 +240,11 @@ def extract_full_news_data(
     created_at_raw = legacy.get("created_at", "")
     created_dt, iso_str, epoch_ts = parse_twitter_date(created_at_raw)
     
-    # 2 Günlük TTL hesaplama (Otomatik silinme tarihi)
-    expire_dt = created_dt + timedelta(days=retention_days)
+    # Sisteme alınma zamanı
+    now_dt = datetime.now(timezone.utc)
+    
+    # 2 Günlük TTL hesaplama (Haber çekildikten itibaren tam retention_days (2 gün) kalır)
+    expire_dt = now_dt + timedelta(days=retention_days)
     expire_iso = expire_dt.isoformat()
     expire_ts = int(expire_dt.timestamp())
 
@@ -363,6 +366,8 @@ def extract_full_news_data(
         "created_at": created_at_raw,
         "published_at": iso_str,
         "published_timestamp": epoch_ts,
+        "ingested_at": now_dt.isoformat(),
+        "ingested_timestamp": int(now_dt.timestamp()),
         "expires_at": expire_iso,
         "expires_timestamp": expire_ts,
         "retention_days": retention_days

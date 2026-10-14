@@ -62,13 +62,14 @@ class Database:
                 else:
                     doc_ref.set(data_to_save)
                     is_new = True
+                print(f"      ✓ [FIRESTORE] '{coll_name}/{tweet_id}' ({'Yeni' if is_new else 'Güncellendi'})")
 
             # Kategori Fihristini Güncelle (Uygulama ve Web için dinamik kategori menüsü)
             self._update_category_meta(category, news_doc.get("category_name", category))
 
             return is_new, True
         except Exception as e:
-            print(f"[HATA] Firestore kayıt hatası ({tweet_id}): {e}")
+            print(f"[HATA] Firestore kayıt hatası ({tweet_id}): {type(e).__name__} - {e}")
             return False, False
 
     def _update_category_meta(self, category_slug: str, category_name: str):
@@ -86,14 +87,14 @@ class Database:
 
     def delete_expired_news(self, retention_days: int = 2) -> int:
         """
-        2 günden (veya belirtilen retention_days) eski haberleri Firestore'dan otomatik siler.
+        Süresi dolmuş (expires_timestamp <= now) haberleri Firestore'dan otomatik siler.
         Hem ana koleksiyonu hem de kategori koleksiyonlarını tarar.
         """
         now = datetime.now(timezone.utc)
-        cutoff_dt = now - timedelta(days=retention_days)
-        cutoff_ts = int(cutoff_dt.timestamp())
+        now_ts = int(now.timestamp())
+        now_iso = now.isoformat()
 
-        print(f"\n-> [OTOMATİK TEMİZLEME] {retention_days} günden eski ({cutoff_dt.strftime('%d.%m.%Y %H:%M')} UTC öncesi) haberler aranıyor...")
+        print(f"\n-> [OTOMATİK TEMİZLEME] Süresi dolmuş (expires_timestamp <= {now_ts} | {now.strftime('%d.%m.%Y %H:%M')} UTC) haberler aranıyor...")
 
         # Temizlenecek koleksiyonları belirle
         collections_to_check = [Config.MAIN_COLLECTION]
@@ -115,13 +116,13 @@ class Database:
             try:
                 coll_ref = self.db.collection(coll_name)
                 
-                # 1. published_timestamp ile ara
-                query = coll_ref.where("published_timestamp", "<=", cutoff_ts).limit(450)
+                # 1. expires_timestamp ile sorgula (haberin 2 günlük süresi bitti mi?)
+                query = coll_ref.where("expires_timestamp", "<=", now_ts).limit(450)
                 docs = list(query.stream())
 
-                # Eğer published_timestamp bulunamadıysa (eski kayıtlar için expires_at kontrolü)
+                # 2. Alternatif olarak expires_at string kontrolü
                 if not docs:
-                    query2 = coll_ref.where("expires_at", "<=", now.isoformat()).limit(450)
+                    query2 = coll_ref.where("expires_at", "<=", now_iso).limit(450)
                     docs = list(query2.stream())
 
                 if docs:
@@ -133,11 +134,11 @@ class Database:
 
                     batch.commit()
                     total_deleted += deleted_in_batch
-                    print(f"   ✓ '{coll_name}' koleksiyonundan {deleted_in_batch} eski haber silindi.")
+                    print(f"   ✓ '{coll_name}' koleksiyonundan {deleted_in_batch} süresi dolmuş haber silindi.")
             except Exception as e:
                 # İndeks gerekmesi durumu için client-side fallback
                 if "requires an index" in str(e):
-                    fallback_deleted = self._fallback_cleanup_by_date(coll_name, cutoff_ts)
+                    fallback_deleted = self._fallback_cleanup_by_date(coll_name, now_ts)
                     total_deleted += fallback_deleted
                 else:
                     print(f"   [!] '{coll_name}' temizlenirken uyarı: {e}")
