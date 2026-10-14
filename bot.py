@@ -170,7 +170,8 @@ def main():
 
     print("=" * 65)
     print("🚀 NOVRA AI - TWITTER HABER ÇEKME VE YÖNETİM BOTU (v1.4)")
-    print("   Geliştiriciler: Muhammed Yasin KORKUT & Beyza KARAKAŞ")
+    print("   Kurucu: Kerem Kurşunoğlu")
+    print("   Yazılım Geliştiricileri: Muhammed Yasin Korkut & Beyza Karakaş")
     print("=" * 65)
 
     # 1. Veritabanını Başlat

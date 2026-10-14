@@ -14,9 +14,9 @@
 </p>
 
 ---
-**Founder & Project Owner:[Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip)
-**Hazırlayanlar:** [Muhammed Yasin KORKUT](https://github.com/Yasin0234) & [Beyza KARAKAŞ](https://github.com/jibeymin)  
-**Sürüm:** `1.4` | **Tarih:** `14 Ekim 2026`
+**Kurucu:** [Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip)  
+**Yazılım Geliştiricileri:** [Muhammed Yasin Korkut](https://github.com/Yasin0234) & [Beyza Karakaş](https://github.com/jibeymin)  
+**Sürüm:** `1.4` | **Tarih:** `15 Ekim 2026`
 
 </div>
 
@@ -290,30 +290,45 @@ Bu proje **Novra AI** ekibi tarafından geliştirilmiştir:
 <table align="center">
   <tr>
     <td align="center" width="220">
-      <a href="https://github.com/Yasin0234">
-        <img src="https://github.com/Yasin0234.png" width="100px;" alt="Muhammed Yasin KORKUT" style="border-radius:50%;"/><br />
-        <sub><b>Muhammed Yasin KORKUT</b></sub>
+      <a href="https://github.com/keremkursunoglu14-blip">
+        <img src="https://github.com/keremkursunoglu14-blip.png" width="100px;" alt="Kerem Kurşunoğlu" style="border-radius:50%;"/><br />
+        <sub><b>Kerem Kurşunoğlu</b></sub>
       </a><br />
-      <sub>Lead Developer & AI Engineer</sub><br />
+      <sub>Kurucu</sub><br />
+      <a href="https://github.com/keremkursunoglu14-blip"><sub>@keremkursunoglu14-blip</sub></a>
+    </td>
+    <td align="center" width="220">
+      <a href="https://github.com/Yasin0234">
+        <img src="https://github.com/Yasin0234.png" width="100px;" alt="Muhammed Yasin Korkut" style="border-radius:50%;"/><br />
+        <sub><b>Muhammed Yasin Korkut</b></sub>
+      </a><br />
+      <sub>Yazılım Geliştiricisi</sub><br />
       <a href="https://github.com/Yasin0234"><sub>@Yasin0234</sub></a>
     </td>
     <td align="center" width="220">
       <a href="https://github.com/jibeymin">
-        <img src="https://github.com/jibeymin.png" width="100px;" alt="Beyza KARAKAŞ" style="border-radius:50%;"/><br />
-        <sub><b>Beyza KARAKAŞ</b></sub>
+        <img src="https://github.com/jibeymin.png" width="100px;" alt="Beyza Karakaş" style="border-radius:50%;"/><br />
+        <sub><b>Beyza Karakaş</b></sub>
       </a><br />
-      <sub>Co-Developer & System Architecture</sub><br />
+      <sub>Yazılım Geliştiricisi</sub><br />
       <a href="https://github.com/jibeymin"><sub>@jibeymin</sub></a>
     </td>
   </tr>
 </table>
-- **Kerem KURŞUNOĞLU** - Founder & Project Owner (https://github.com/keremkursunoglu14-blip)
-- **Muhammed Yasin KORKUT** - Lead Developer & AI Engineer ([@Yasin0234](https://github.com/Yasin0234))
-- **Beyza KARAKAŞ** - Co-Developer & System Architecture ([@jibeymin](https://github.com/jibeymin))
+- [Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip) - Kurucu ([@keremkursunoglu14-blip](https://github.com/keremkursunoglu14-blip))
+- [Muhammed Yasin Korkut](https://github.com/Yasin0234) - Yazılım Geliştiricisi ([@Yasin0234](https://github.com/Yasin0234))
+- [Beyza Karakaş](https://github.com/jibeymin) - Yazılım Geliştiricisi ([@jibeymin](https://github.com/jibeymin))
+
+---
+
+## ⚖️ Mülkiyet ve Telif Hakkı Bildirimi
+
+> **Önemli Hukuki Bildirim:**  
+> Projenin tüm telif hakları Kurucu **Kerem Kurşunoğlu**'nun kuracağı adı **'Novra A.İ.'** veya başka bir ad üstüne olacaktır.
 
 ---
 
 ## 📜 Lisans
 
-Bu proje [MIT Lisansı](LICENSE) kapsamında korunmaktadır.
-Tüm hakları saklıdır © 2026
+Bu proje [MIT Lisansı](LICENSE) kapsamında korunmaktadır.  
+Tüm hakları saklıdır © 2026 Kerem Kurşunoğlu (Novra A.İ.) / Muhammed Yasin Korkut & Beyza Karakaş
