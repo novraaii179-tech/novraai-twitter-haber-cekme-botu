@@ -307,7 +307,7 @@ Bu proje **Novra AI** ekibi tarafından geliştirilmiştir:
     </td>
   </tr>
 </table>
-- **Kerem KURŞUNOĞLU** - Founder & Project Owner
+- **Kerem KURŞUNOĞLU** - Founder & Project Owner (https://github.com/keremkursunoglu14-blip)
 - **Muhammed Yasin KORKUT** - Lead Developer & AI Engineer ([@Yasin0234](https://github.com/Yasin0234))
 - **Beyza KARAKAŞ** - Co-Developer & System Architecture ([@jibeymin](https://github.com/jibeymin))
 
