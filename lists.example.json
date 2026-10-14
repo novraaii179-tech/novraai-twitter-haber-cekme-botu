@@ -1,0 +1,22 @@
+[
+  {
+    "url": "https://x.com/i/lists/1975820683461460354",
+    "name": "Gündem ve Son Dakika",
+    "category": "gundem"
+  },
+  {
+    "url": "https://x.com/i/lists/1234567890123456789",
+    "name": "Ekonomi ve Finans",
+    "category": "ekonomi"
+  },
+  {
+    "url": "https://x.com/i/lists/9876543210987654321",
+    "name": "Teknoloji ve Yapay Zeka",
+    "category": "teknoloji"
+  },
+  {
+    "url": "https://x.com/i/lists/5555555555555555555",
+    "name": "Spor Dünyası",
+    "category": "spor"
+  }
+]

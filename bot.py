@@ -1,701 +1,238 @@
-import json
-import os
+import argparse
 import sys
-
-import firebase_admin
-from firebase_admin import credentials, firestore
+import time
+from typing import Dict, Any, List, Optional
 from playwright.sync_api import sync_playwright
 
-
-# --------------------------------------------------
-# YAPILANDIRMA
-# --------------------------------------------------
-
-LIST_ID = "1975820683461460354"
-
-
-def get_env_variable(var_name):
-    value = os.environ.get(var_name)
-
-    if not value:
-        sys.exit(
-            f"KRİTİK HATA: {var_name} bulunamadı!"
-        )
-
-    return value
+from config import Config, TwitterListConfig
+from extractor import extract_full_news_data
+from database import Database
 
 
 # --------------------------------------------------
-# FIREBASE
+# PLAYWRIGHT İLE X (TWITTER) LİSTE VERİSİ YAKALAMA
 # --------------------------------------------------
 
-def init_firebase():
-    print("-> Firebase başlatılıyor...")
-
-    try:
-        cred_dict = json.loads(
-            get_env_variable("FIREBASE_CREDENTIALS")
-        )
-
-        cred = credentials.Certificate(
-            cred_dict
-        )
-
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(
-                cred
-            )
-
-        return firestore.client()
-
-    except Exception as e:
-        sys.exit(
-            f"KRİTİK HATA: Firebase hatası: {e}"
-        )
-
-
-# --------------------------------------------------
-# X ÇEREZLERİNİ PLAYWRIGHT FORMATINA ÇEVİR
-# --------------------------------------------------
-
-def parse_cookies_for_browser():
-
-    cookies_str = get_env_variable(
-        "TWITTER_COOKIES"
-    )
-
-    try:
-        cookies_raw = json.loads(
-            cookies_str
-        )
-
-    except Exception:
-        sys.exit(
-            "HATA: Çerezler JSON formatında değil!"
-        )
-
-    cookie_dict = {}
-
-    if isinstance(cookies_raw, list):
-
-        for cookie in cookies_raw:
-
-            if (
-                "name" in cookie
-                and "value" in cookie
-            ):
-                cookie_dict[
-                    cookie["name"]
-                ] = cookie["value"]
-
-    elif isinstance(
-        cookies_raw,
-        dict
-    ):
-        cookie_dict = cookies_raw
-
-    pw_cookies = []
-
-    for key, value in cookie_dict.items():
-
-        pw_cookies.append(
-            {
-                "name": key,
-                "value": value,
-                "domain": ".x.com",
-                "path": "/"
-            }
-        )
-
-    return pw_cookies
-
-
-# --------------------------------------------------
-# PLAYWRIGHT İLE X VERİSİ YAKALAMA
-# --------------------------------------------------
-
-def fetch_tweets_via_browser(
-    pw_cookies
-):
-
-    print(
-        "-> Görünmez Tarayıcı "
-        "(Playwright) başlatılıyor..."
-    )
-
+def fetch_list_timeline_data(
+    page, 
+    list_config: TwitterListConfig
+) -> Optional[Dict[str, Any]]:
+    """
+    Belirtilen X liste sayfasına gider ve arka planda tetiklenen
+    ListLatestTweetsTimeline GraphQL JSON yanıtını yakalar.
+    """
     captured_data = None
+    list_url = list_config.url
 
-    with sync_playwright() as p:
+    def handle_response(response):
+        nonlocal captured_data
+        if (
+            "ListLatestTweetsTimeline" in response.url
+            and response.status == 200
+            and response.request.method == "GET"
+        ):
+            try:
+                captured_data = response.json()
+            except Exception:
+                pass
 
-        browser = p.chromium.launch(
-            headless=True
-        )
+    page.on("response", handle_response)
 
-        context = browser.new_context(
+    print(f"\n-> [{list_config.category.upper()}] Listeye gidiliyor: {list_url}")
 
-            user_agent=(
-                "Mozilla/5.0 "
-                "(Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 "
-                "(KHTML, like Gecko) "
-                "Chrome/126.0.0.0 "
-                "Safari/537.36"
-            ),
+    try:
+        page.goto(list_url, wait_until="networkidle", timeout=35000)
+        # Verilerin ve medya API çağrılarının tamamlanması için bekle
+        page.wait_for_timeout(6000)
+    except Exception as e:
+        print(f"-> Sayfa yüklenirken zaman aşımı oldu (veri yine de yakalanmış olabilir): {e}")
 
-            viewport={
-                "width": 1280,
-                "height": 720
-            }
-        )
-
-        context.add_cookies(
-            pw_cookies
-        )
-
-        page = context.new_page()
-
-        # ------------------------------------------
-        # X API cevabını yakala
-        # ------------------------------------------
-
-        def handle_response(response):
-
-            nonlocal captured_data
-
-            if (
-                "ListLatestTweetsTimeline"
-                in response.url
-                and response.status == 200
-                and response.request.method == "GET"
-            ):
-
-                try:
-
-                    print(
-                        "-> Başarılı! "
-                        "Arka plandaki API JSON "
-                        "verisi yakalandı."
-                    )
-
-                    captured_data = (
-                        response.json()
-                    )
-
-                except Exception:
-                    pass
-
-        page.on(
-            "response",
-            handle_response
-        )
-
-        print(
-            f"-> X.com adresinde "
-            f"{LIST_ID} numaralı "
-            "listeye gidiliyor..."
-        )
-
-        try:
-
-            page.goto(
-                f"https://x.com/i/lists/{LIST_ID}",
-                wait_until="networkidle",
-                timeout=30000
-            )
-
-            # X'in API isteğini yapması için
-            # biraz süre ver.
-            page.wait_for_timeout(
-                6000
-            )
-
-        except Exception as e:
-
-            print(
-                "-> Sayfa yüklenirken "
-                "zaman aşımı oldu ancak "
-                "veri yakalanmış olabilir: "
-                f"{e}"
-            )
-
-        browser.close()
-
-    if not captured_data:
-
-        sys.exit(
-            "KRİTİK HATA: Tarayıcı açıldı "
-            "ama 'ListLatestTweetsTimeline' "
-            "JSON verisi yakalanamadı. "
-            "Çerezler geçersiz olabilir."
-        )
+    # Listener'ı temizle
+    try:
+        page.remove_listener("response", handle_response)
+    except Exception:
+        pass
 
     return captured_data
 
 
 # --------------------------------------------------
-# ANA İŞLEM
+# LİSTE BAZLI TWEETLERİ İŞLE VE KAYDET
 # --------------------------------------------------
 
-def main():
-
-    db = init_firebase()
-
-    pw_cookies = (
-        parse_cookies_for_browser()
-    )
-
-    data = fetch_tweets_via_browser(
-        pw_cookies
-    )
-
-    # ----------------------------------------------
-    # Timeline verisini bul
-    # ----------------------------------------------
-
+def process_list(
+    db: Database, 
+    captured_data: Dict[str, Any], 
+    list_config: TwitterListConfig
+) -> tuple[int, int]:
+    """
+    Yakalanan JSON verisindeki tweetleri, görselleri ve videoları ayıklar,
+    Firebase Firestore'a liste/kategori bilgisiyle kaydeder.
+    """
     try:
+        list_obj = captured_data.get("data", {}).get("list", {})
+        
+        # Eğer konfigürasyonda isim belirtilmemişse X'teki liste adını otomatik al
+        x_list_name = list_obj.get("name")
+        if x_list_name and not list_config.name:
+            list_config.name = x_list_name
+            if not list_config.category:
+                from config import slugify
+                list_config.category = slugify(x_list_name)
 
         instructions = (
-            data["data"]
-            ["list"]
-            ["tweets_timeline"]
-            ["timeline"]
-            ["instructions"]
+            list_obj
+            .get("tweets_timeline", {})
+            .get("timeline", {})
+            .get("instructions", [])
         )
-
     except KeyError:
-
-        sys.exit(
-            "KRİTİK HATA: Yakalanan veri "
-            "beklenen X JSON formatında değil."
-        )
+        print("[HATA] Yakalanan veri beklenen X JSON formatında değil.")
+        return 0, 0
 
     entries = []
-
     for instruction in instructions:
-
-        if (
-            instruction.get("type")
-            == "TimelineAddEntries"
-        ):
-
-            entries = instruction.get(
-                "entries",
-                []
-            )
-
+        if instruction.get("type") == "TimelineAddEntries":
+            entries = instruction.get("entries", [])
             break
 
     if not entries:
+        print(f"-> [{list_config.name or list_config.list_id}] İşlenecek yeni tweet bulunamadı.")
+        return 0, 0
 
-        print(
-            "-> İşlenecek yeni tweet "
-            "bulunamadı."
-        )
-
-        return
-
-    print(
-        f"-> Analiz edilen haber sayısı: "
-        f"{len(entries)}"
-    )
+    print(f"-> Bulunan tweet sayısı: {len(entries)}")
 
     saved_count = 0
     updated_count = 0
 
-    # ----------------------------------------------
-    # TWEETLERİ İŞLE
-    # ----------------------------------------------
-
     for entry in entries:
-
-        content = (
-            entry
-            .get("content", {})
-            .get("itemContent", {})
-            .get("tweet_results", {})
-            .get("result", {})
+        # Haberi, tüm görselleri, videoları ve metadata'yı çıkar
+        news_item = extract_full_news_data(
+            entry, 
+            list_config, 
+            retention_days=Config.RETENTION_DAYS
         )
 
-        if not content:
+        if not news_item:
             continue
 
-        # Bazı X cevaplarında gerçek Tweet
-        # "tweet" alanının içinde geliyor.
-        if (
-            content.get("__typename")
-            == "TweetWithVisibilityResults"
-        ):
+        tweet_id = news_item["tweet_id"]
+        author = news_item.get("author", {})
+        media_count = news_item.get("media_count", 0)
+        img_count = len(news_item.get("images", []))
+        vid_count = len(news_item.get("videos", []))
 
-            tweet = content.get(
-                "tweet",
-                {}
-            )
-
-        else:
-            tweet = content
-
-        tweet_id = tweet.get(
-            "rest_id"
-        )
-
-        if not tweet_id:
-            continue
-
-        legacy = tweet.get(
-            "legacy",
-            {}
-        )
-
-        # ------------------------------------------
-        # MEDYA
-        # ------------------------------------------
-
-        images = []
-        videos = []
-
-        media_list = (
-            legacy
-            .get(
-                "extended_entities",
-                {}
-            )
-            .get(
-                "media",
-                []
-            )
-        )
-
-        if not media_list:
-
-            media_list = (
-                legacy
-                .get(
-                    "entities",
-                    {}
-                )
-                .get(
-                    "media",
-                    []
-                )
-            )
-
-        for media in media_list:
-
-            media_type = media.get(
-                "type"
-            )
-
-            # Fotoğraf
-            if (
-                media_type == "photo"
-                and media.get(
-                    "media_url_https"
-                )
-            ):
-
-                images.append(
-                    media[
-                        "media_url_https"
-                    ]
-                )
-
-            # Video / GIF
-            elif media_type in [
-                "video",
-                "animated_gif"
-            ]:
-
-                variants = (
-                    media
-                    .get(
-                        "video_info",
-                        {}
-                    )
-                    .get(
-                        "variants",
-                        []
-                    )
-                )
-
-                mp4_variants = [
-                    variant
-                    for variant in variants
-                    if (
-                        variant.get(
-                            "content_type"
-                        )
-                        == "video/mp4"
-                    )
-                ]
-
-                if mp4_variants:
-
-                    best_video = max(
-                        mp4_variants,
-                        key=lambda item:
-                        item.get(
-                            "bitrate",
-                            0
-                        )
-                    )
-
-                    video_url = (
-                        best_video.get(
-                            "url"
-                        )
-                    )
-
-                    if video_url:
-                        videos.append(
-                            video_url
-                        )
-
-        # Tekrar eden medyaları kaldır
-        images = list(
-            dict.fromkeys(images)
-        )
-
-        videos = list(
-            dict.fromkeys(videos)
-        )
-
-        # ------------------------------------------
-        # YAZAR / KAYNAK BİLGİSİ
-        # ------------------------------------------
-
-        user_result = (
-            tweet
-            .get("core", {})
-            .get("user_results", {})
-            .get("result", {})
-        )
-
-        user_legacy = (
-            user_result.get(
-                "legacy",
-                {}
-            )
-        )
-
-        user_core = (
-            user_result.get(
-                "core",
-                {}
-            )
-        )
-
-        # X'in farklı JSON yapılarında
-        # isim legacy veya core altında olabilir.
-        author_name = (
-
-            user_legacy.get("name")
-
-            or user_core.get("name")
-
-            or ""
-        )
-
-        # Kullanıcı adı
-        author_username = (
-
-            user_legacy.get(
-                "screen_name"
-            )
-
-            or user_core.get(
-                "screen_name"
-            )
-
-            or ""
-        )
-
-        # Bazı yeni cevaplarda screen_name
-        # doğrudan core içindeki user_results
-        # yapısından farklı gelebilir.
-        if not author_username:
-
-            author_username = (
-                user_result
-                .get(
-                    "screen_name",
-                    ""
-                )
-            )
-
-        # Profil resmi
-        profile_image_url = (
-
-            user_legacy.get(
-                "profile_image_url_https"
-            )
-
-            or (
-                user_result
-                .get(
-                    "avatar",
-                    {}
-                )
-                .get(
-                    "image_url",
-                    ""
-                )
-            )
-
-            or ""
-        )
-
-        # ------------------------------------------
-        # GERÇEK X KAYNAK URL'Sİ
-        # ------------------------------------------
-
-        if author_username:
-
-            source_url = (
-                f"https://x.com/"
-                f"{author_username}/"
-                f"status/{tweet_id}"
-            )
-
-        else:
-
-            # Username alınamazsa bile
-            # tweet adresi çalışmaya devam eder.
-            source_url = (
-                f"https://x.com/i/web/"
-                f"status/{tweet_id}"
-            )
-
-        # Debug
         print(
-            f"-> Kaynak: "
-            f"{author_name or 'Bilinmiyor'}"
-            f" | "
-            f"@{author_username or 'Bilinmiyor'}"
-            f" | "
-            f"{source_url}"
+            f"   📰 [{news_item['category']}] @{author.get('username') or 'anonim'}: "
+            f"{news_item.get('clean_text', '')[:65]}... "
+            f"(📸 {img_count} resim | 🎥 {vid_count} video)"
         )
 
-        # ------------------------------------------
-        # FIRESTORE VERİSİ
-        # ------------------------------------------
-
-        doc_data = {
-
-            "tweet_id":
-                tweet_id,
-
-            "text":
-                legacy.get(
-                    "full_text",
-                    ""
-                ),
-
-            "images":
-                images,
-
-            "videos":
-                videos,
-
-            "has_media":
-                bool(
-                    images
-                    or videos
-                ),
-
-            "media_count":
-                len(images)
-                + len(videos),
-
-            "created_at":
-                legacy.get(
-                    "created_at",
-                    ""
-                ),
-
-            "list_id":
-                LIST_ID,
-
-            # Gerçek X linki
-            "source_url":
-                source_url,
-
-            # Kaynak / yazar
-            "author": {
-
-                "name":
-                    author_name,
-
-                # Android tarafında
-                # kullanılacak alan.
-                "username":
-                    author_username,
-
-                # Eski kodlarla
-                # uyumluluk.
-                "screen_name":
-                    author_username,
-
-                "profile_image_url":
-                    profile_image_url
-            },
-
-            "updated_at":
-                firestore.SERVER_TIMESTAMP
-        }
-
-        # ------------------------------------------
-        # FIRESTORE'A KAYDET
-        # ------------------------------------------
-
-        doc_ref = (
-            db
-            .collection("haberler")
-            .document(tweet_id)
-        )
-
-        try:
-
-            existing_doc = (
-                doc_ref.get()
-            )
-
-            if existing_doc.exists:
-
-                doc_ref.set(
-                    doc_data,
-                    merge=True
-                )
-
+        # Firestore'a kaydet
+        is_new, success = db.save_news(news_item)
+        if success:
+            if is_new:
+                saved_count += 1
+            else:
                 updated_count += 1
 
-            else:
+    return saved_count, updated_count
 
-                doc_ref.set(
-                    doc_data
-                )
 
-                saved_count += 1
+# --------------------------------------------------
+# ANA AKIŞ
+# --------------------------------------------------
 
-        except Exception as e:
-
-            print(
-                f"-> Firestore kayıt hatası "
-                f"({tweet_id}): {e}"
-            )
-
-    # ----------------------------------------------
-    # SONUÇ
-    # ----------------------------------------------
-
-    print("-" * 50)
-
-    print(
-        "İŞLEM BİTTİ. "
-        f"Yeni: {saved_count} | "
-        f"Güncellenen: {updated_count}"
+def main():
+    parser = argparse.ArgumentParser(
+        description="Twitter'dan Firebase Firestore'a Otomatik Haber Çekme ve Temizleme Botu (v1.4)"
     )
+    parser.add_argument("--cleanup-only", action="store_true", help="Sadece 2 günden eski haberleri siler")
+    parser.add_argument("--no-cleanup", action="store_true", help="2 günlük otomatik temizleme adımını atlar")
+    parser.add_argument("--list", type=str, help="Sadece belirli bir liste URL'si veya ID'si için çalıştır")
+    args = parser.parse_args()
 
-    print("-" * 50)
+    print("=" * 65)
+    print("🚀 NOVRA AI - TWITTER HABER ÇEKME VE YÖNETİM BOTU (v1.4)")
+    print("   Geliştiriciler: Muhammed Yasin KORKUT & Beyza KARAKAŞ")
+    print("=" * 65)
+
+    # 1. Veritabanını Başlat
+    db = Database()
+
+    # Eğer sadece temizleme istendiyse
+    if args.cleanup_only:
+        db.delete_expired_news(retention_days=Config.RETENTION_DAYS)
+        print("-> Temizleme işlemi tamamlandı. Çıkılıyor.")
+        return
+
+    # 2. Takip Edilecek Listeleri Belirle
+    if args.list:
+        from config import extract_list_id, slugify
+        list_id = extract_list_id(args.list)
+        if not list_id:
+            sys.exit(f"HATA: Geçersiz liste parametresi: {args.list}")
+        lists_to_fetch = [
+            TwitterListConfig(
+                list_id=list_id, 
+                url=args.list if args.list.startswith("http") else f"https://x.com/i/lists/{list_id}",
+                name="Özel Liste",
+                category="ozel"
+            )
+        ]
+    else:
+        lists_to_fetch = Config.get_twitter_lists()
+
+    print(f"-> Toplam {len(lists_to_fetch)} adet X listesi taranacak.")
+    for idx, l in enumerate(lists_to_fetch, 1):
+        print(f"   {idx}. ID: {l.list_id} | Kategori: {l.category or 'Otomatik'} | URL: {l.url}")
+
+    # 3. Çerezleri Al
+    pw_cookies = Config.get_twitter_cookies()
+
+    total_saved = 0
+    total_updated = 0
+
+    # 4. Playwright ile Tarayıcıyı Başlat ve Listeleri Gez
+    print("\n-> Görünmez Tarayıcı (Playwright Chromium) hazırlanıyor...")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1280, "height": 720}
+        )
+        context.add_cookies(pw_cookies)
+        page = context.new_page()
+
+        for l_cfg in lists_to_fetch:
+            try:
+                captured_json = fetch_list_timeline_data(page, l_cfg)
+                if not captured_json:
+                    print(f"[UYARI] '{l_cfg.url}' için veri yakalanamadı. Çerezleri veya liste izinlerini kontrol edin.")
+                    continue
+
+                saved, updated = process_list(db, captured_json, l_cfg)
+                total_saved += saved
+                total_updated += updated
+
+                # Listeler arası nazik bekleme
+                time.sleep(2)
+            except Exception as e:
+                print(f"[HATA] Liste işlenirken beklenmeyen hata ({l_cfg.url}): {e}")
+
+        browser.close()
+
+    print("\n" + "=" * 65)
+    print(f"✅ ÇEKME İŞLEMİ TAMAMLANDI: {total_saved} Yeni Haber | {total_updated} Güncellendi")
+    print("=" * 65)
+
+    # 5. 2 Günden Eski Haberleri Otomatik Temizle
+    if Config.AUTO_CLEANUP_ENABLED and not args.no_cleanup:
+        db.delete_expired_news(retention_days=Config.RETENTION_DAYS)
 
 
 if __name__ == "__main__":
