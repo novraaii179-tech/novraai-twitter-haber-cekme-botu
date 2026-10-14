@@ -14,7 +14,7 @@
 </p>
 
 ---
-
+**Founder & Project Owner:[Kerem Kurşunoğlu]
 **Hazırlayanlar:** [Muhammed Yasin KORKUT](https://github.com/Yasin0234) & [Beyza KARAKAŞ](https://github.com/jibeymin)  
 **Sürüm:** `1.4` | **Tarih:** `14 Ekim 2026`
 
