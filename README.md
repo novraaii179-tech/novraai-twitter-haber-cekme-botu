@@ -315,7 +315,7 @@ Bu proje **Novra AI** ekibi tarafından geliştirilmiştir:
     </td>
   </tr>
 </table>
-- [Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip) - Kurucu ([@keremkursunoglu14-blip](https://github.com/keremkursunoglu14-blip))
+- [Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip) - Kurucu & Proje sahibi ([@keremkursunoglu14-blip](https://github.com/keremkursunoglu14-blip))
 - [Muhammed Yasin Korkut](https://github.com/Yasin0234) - Yazılım Geliştiricisi ([@Yasin0234](https://github.com/Yasin0234))
 - [Beyza Karakaş](https://github.com/jibeymin) - Yazılım Geliştiricisi ([@jibeymin](https://github.com/jibeymin))
 
