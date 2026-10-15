@@ -294,7 +294,7 @@ Bu proje **Novra AI** ekibi tarafından geliştirilmiştir:
         <img src="https://github.com/keremkursunoglu14-blip.png" width="100px;" alt="Kerem Kurşunoğlu" style="border-radius:50%;"/><br />
         <sub><b>Kerem Kurşunoğlu</b></sub>
       </a><br />
-      <sub>Kurucu</sub><br />
+      <sub>Kurucu & Proje sahibi</sub><br />
       <a href="https://github.com/keremkursunoglu14-blip"><sub>@keremkursunoglu14-blip</sub></a>
     </td>
     <td align="center" width="220">
