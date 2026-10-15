@@ -331,4 +331,4 @@ Bu proje **Novra AI** ekibi tarafından geliştirilmiştir:
 ## 📜 Lisans
 
 Bu proje [MIT Lisansı](LICENSE) kapsamında korunmaktadır.  
-Tüm hakları saklıdır © 2026 Kerem Kurşunoğlu (Novra A.İ.) / Muhammed Yasin Korkut & Beyza Karakaş
+Tüm hakları saklıdır © 2026 Kerem Kurşunoğlu (Novra A.İ.) 
