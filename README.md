@@ -14,7 +14,7 @@
 </p>
 
 ---
-**Kurucu:** [Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip)  
+**Kurucu & Proje sahibi:** [Kerem Kurşunoğlu](https://github.com/keremkursunoglu14-blip)  
 **Yazılım Geliştiricileri:** [Muhammed Yasin Korkut](https://github.com/Yasin0234) & [Beyza Karakaş](https://github.com/jibeymin)  
 **Sürüm:** `1.4` | **Tarih:** `15 Ekim 2026`
 
